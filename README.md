@@ -1,66 +1,120 @@
 # Docker vs WSL Network Latency Comparison
 
-Docker UbuntuコンテナとWSL Ubuntu環境でのWindows PowerShellとのTCP通信性能を比較測定するプロジェクトです。
+A project to compare TCP communication performance between Docker Ubuntu containers and WSL Ubuntu environments with Windows PowerShell.
 
-## 📊 測定結果
+## About This Repository
 
-### 通信性能比較（10回 × 10,000回ping-pong）
+### Purpose
+- **Docker vs WSL Communication Performance Comparison**: Execute the same TCP communication test in both environments and measure performance differences quantitatively
+- **ROS Development Environment Evaluation**: Measure network performance in ROS Noetic environment
+- **Development Environment Selection Reference**: Provide indicators for environment selection when network performance is critical
 
-| 環境 | 平均レイテンシ | 99パーセンタイル | 評価 |
-|------|----------------|------------------|------|
-| **Docker Ubuntu** | 0.315 ms | 1.224 ms | ⭐⭐⭐ 良好 |
-| **WSL Ubuntu** | 0.083 ms | 0.183 ms | ⭐⭐⭐⭐⭐ 極めて優秀 |
+### Measurement Content
+- Ping-pong communication between TCP echo server/client
+- Measurement of average latency and 99th percentile
+- 10 rounds × 10,000 communication tests per environment
 
-**結論**: WSLの方が平均レイテンシで**3.8倍高速**、99パーセンタイルで**6.7倍安定**
+## File Structure
 
-## 🚀 クイックスタート
+```
+├── Dockerfile              # ROS Noetic + Python 3.9 environment setup
+├── server.py               # TCP echo server (run on Windows PowerShell)
+├── client.py               # Latency measurement client
+├── test_loop.ps1           # Docker 10-round test script
+├── test_wsl_loop.ps1       # WSL 10-round test script
+├── compare_results.py      # Result comparison and analysis script
+├── requirements.txt        # Python dependencies (currently empty)
+├── entrypoint.sh          # Docker entrypoint
+└── README.md              # This file
+```
 
-### 1. 環境準備
+## About Dockerfile
+
+### Environment Configuration
+- **Base Image**: `ros:noetic-ros-core-focal` (Ubuntu 20.04 + ROS Noetic)
+- **Python**: 3.9 (default setting)
+- **Additional Packages**: 
+  - ROS Noetic Desktop Full
+  - PyTorch (CUDA 12.4 support)
+  - X11, NVIDIA GPU support
+  - Scientific computing libraries (numpy, scipy, matplotlib, pandas)
+
+### Features
+- **Japanese Locale Support**: `ja_JP.UTF-8`
+- **NVIDIA GPU Support**: Container Toolkit compatible
+- **Flexible Entrypoint**: Automatically loads ROS environment with `entrypoint.sh`
+- **requirements.txt Support**: Python dependency management
+
+## Docker Environment Startup Methods
+
+### 1. Build Image
 ```bash
-# Docker環境のビルド
 docker build -t ros-noetic-dev .
-
-# WSL環境の確認
-wsl --list --verbose
 ```
 
-### 2. サーバー起動（Windows PowerShell）
+### 2. Basic Startup
 ```bash
-python server.py
+# Interactive shell (for development)
+docker run -it --rm ros-noetic-dev
+
+# Background execution
+docker run -d --name ros-container ros-noetic-dev
 ```
 
-### 3. クライアント実行
-
-#### Docker環境
+### 3. Communication Test Startup
 ```bash
+# Server execution (port exposure)
+docker run -d --name latency-server -p 50007:50007 ros-noetic-dev python3 server.py
+
+# Client execution (file mount)
 docker run --rm -v ${PWD}:/workspace ros-noetic-dev bash -c "cd /workspace && python3 client.py --host host.docker.internal"
 ```
 
-#### WSL環境
+### 4. Development Startup (Recommended)
 ```bash
-wsl bash -c "cd /home/natume/docker && python3 client.py --host 172.27.32.1"
+# Development environment with file mount
+docker run -it --rm -v ${PWD}:/workspace ros-noetic-dev
+
+# Work inside container
+cd /workspace
+python3 server.py  # Start server
+# In another terminal
+python3 client.py --host host.docker.internal  # Execute client
 ```
 
-## 📁 ファイル構成
+## Environment Variables and Settings
 
+### Docker Environment Variables
+```bash
+# NVIDIA GPU support
+NVIDIA_VISIBLE_DEVICES=all
+NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
+
+# Japanese locale
+LANG=ja_JP.UTF-8
+LC_ALL=ja_JP.UTF-8
 ```
-├── Dockerfile              # ROS Noetic + Python 3.9環境
-├── server.py               # TCPエコーサーバー
-├── client.py               # レイテンシ測定クライアント
-├── test_loop.ps1           # Docker 10回テストスクリプト
-├── test_wsl_loop.ps1       # WSL 10回テストスクリプト
-├── compare_results.py      # 結果比較・分析スクリプト
-├── requirements.txt        # Python依存関係
-└── entrypoint.sh          # Dockerエントリポイント
-```
 
-## 🎯 用途
+### Working Directory
+- **Inside Container**: `/workspace`
+- **Mount**: Mount current host directory to `/workspace`
 
-- **ROS開発環境の選択**: ネットワーク性能が重要な場合の参考
-- **Docker vs WSL比較**: 開発環境の性能ベンチマーク
-- **ネットワーク性能測定**: シンプルなTCP通信テストツール
-- **学習・研究**: ネットワークレイテンシ測定の実装例
+## Measurement Results (Summary)
 
-## �� ライセンス
+| Environment | Average Latency | 99th Percentile |
+|-------------|-----------------|-----------------|
+| **Docker Ubuntu** | 0.315 ms | 1.224 ms |
+| **WSL Ubuntu** | 0.083 ms | 0.183 ms |
+
+**Conclusion**: WSL is **3.8x faster** in average latency and **6.7x more stable** in 99th percentile
+
+## Use Cases
+
+- **ROS Development Environment Selection**: Reference when network performance is critical
+- **Docker vs WSL Comparison**: Performance benchmark for development environments
+- **Network Performance Measurement**: Simple TCP communication test tool
+- **Learning and Research**: Implementation example of network latency measurement
+
+## License
 
 MIT License 
